@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>coffeeproc - Search and Display Magic Cards via the Command Line</title>
+        <link rel="stylesheet" href="../css/default.css" />
+        <link rel="stylesheet" href="../css/syntax/tomas.css" />
+        <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+        <script type="text/javascript" src="../js/loadRepoDescriptions.js"></script>
+
+        
+
+        
+    </head>
+    <body>
+        <header>
+            <div class="logo">
+                <a href="../">coffeeproc</a>
+            </div>
+            <nav>
+                <a href="../">Home</a>
+                <a href="../projects.html">Projects</a>
+                <a href="../posts.html">Posts</a>
+                <a href="../about.html">About</a>
+            </nav>
+        </header>
+
+        <main role="main">
+            <h1>Search and Display Magic Cards via the Command Line</h1>
+            <article>
+    <section class="header">
+        Posted on 2018-02-11
+        
+    </section>
+    <section class="header">
+        
+            Tags: <a href="../tags/command%20line.html">command line</a> • <a href="../tags/imgcat.html">imgcat</a> • <a href="../tags/python.html">python</a> • <a href="../tags/mtg.html">mtg</a>
+        
+    </section>
+    <hr />
+    <section>
+        <p>I have a general tendency to google if someone has made a (usually Python) package for various things and when I recently began playing <a href="https://magic.wizards.com/en">Magic: The Gathering</a> again with some friends, I could not resist the urge to do so. It turns out that <a href="https://github.com/MagicTheGathering/mtg-sdk-python">someone did</a> make a package and in fact there are <a href="https://github.com/MagicTheGathering">quite a few language bindings</a> available.</p>
+<p>Coincidentally, I remembered one of the useful tools packaged with the iTerm v3 console application for Mac: <a href="https://iterm2.com/utilities/imgcat">imgcat</a> (<a href="https://iterm2.com/documentation-images.html">docs</a>). It works like <code>cat</code> but for images as you can see below.</p>
+<div id="image-container">
+<figure>
+<img src="https://iterm2.com/images/inline_image_sparky_demo.png" alt="imgcat in action" /><figcaption>imgcat in action</figcaption>
+</figure>
+</div>
+<p>It would be kinda cool if we could combine the two to search for a given card by name from the command line and use <code>imgcat</code> to display it through the terminal. The following Python script does exactly this in only 22 lines (excluding comments and error-checking). Let us start with the standard Python header stuff (shebang and <a href="https://www.python.org/dev/peps/pep-0263/">file encoding</a>) and import the necessary packages.</p>
+<div class="sourceCode" id="cb1" data-startFrom="1"><pre class="sourceCode numberSource python numberLines"><code class="sourceCode python"><a class="sourceLine" id="cb1-1" title="1"><span class="co">#!/usr/bin/env python</span></a>
+<a class="sourceLine" id="cb1-2" title="2"><span class="co"># -*- coding: utf-8 -*-</span></a>
+<a class="sourceLine" id="cb1-3" title="3"></a>
+<a class="sourceLine" id="cb1-4" title="4"><span class="co">&quot;&quot;&quot;Query a Magic: The Gathering card and show it via iTerm's imgcat script.&quot;&quot;&quot;</span></a>
+<a class="sourceLine" id="cb1-5" title="5"></a>
+<a class="sourceLine" id="cb1-6" title="6"><span class="im">import</span> mtgsdk         <span class="co"># The Magic: The Gathering SDK</span></a>
+<a class="sourceLine" id="cb1-7" title="7"><span class="im">import</span> os             <span class="co"># For expanding the userpath to the imgcat script</span></a>
+<a class="sourceLine" id="cb1-8" title="8"><span class="im">import</span> subprocess     <span class="co"># For calling imgcat</span></a>
+<a class="sourceLine" id="cb1-9" title="9"><span class="im">import</span> sys            <span class="co"># For getting the argument (card name) from the command line</span></a>
+<a class="sourceLine" id="cb1-10" title="10"><span class="im">import</span> tempfile       <span class="co"># For creating a temporary, named image file</span></a>
+<a class="sourceLine" id="cb1-11" title="11"><span class="im">import</span> urllib.request <span class="co"># For downloading the card's image</span></a></code></pre></div>
+<p>We are using Python 3’s <code>urllib</code> here since <code>mtgsdk</code> targets python 3.4+. Next, we need two functions: One for querying the database with the card name and one for getting the image from the card’s image url.</p>
+<div class="sourceCode" id="cb2" data-startFrom="1"><pre class="sourceCode numberSource python numberLines"><code class="sourceCode python"><a class="sourceLine" id="cb2-1" title="1"><span class="kw">def</span> query_by_name(card_name):</a>
+<a class="sourceLine" id="cb2-2" title="2">    <span class="co">&quot;&quot;&quot;Query the mtg database and return the first card with a url or None.&quot;&quot;&quot;</span></a>
+<a class="sourceLine" id="cb2-3" title="3">    <span class="cf">return</span> <span class="bu">next</span>((card <span class="cf">for</span> card <span class="kw">in</span> mtgsdk.Card.where(name<span class="op">=</span>card_name).<span class="bu">iter</span>()</a>
+<a class="sourceLine" id="cb2-4" title="4">                 <span class="cf">if</span> card.image_url), <span class="va">None</span>)</a></code></pre></div>
+<p>We use the Card API’s <code>iter</code> method instead of <code>all</code> to avoid downloading all cards associated with the name at once. Combined with a generator expression for filtering all the cards that do not have an associated url and the <a href="https://docs.python.org/3.4/library/functions.html#next"><code>next</code></a> function we can get the first card that has an image url. We use the optional second argument of <code>next</code> to return <code>None</code> if there are either no cards with the given name or if none of them had a url associated with them. Otherwise, <code>next</code> would throw a <a href="https://docs.python.org/3.4/library/exceptions.html#StopIteration"><code>StopIteration</code></a> exception.</p>
+<div class="sourceCode" id="cb3" data-startFrom="1"><pre class="sourceCode numberSource python numberLines"><code class="sourceCode python"><a class="sourceLine" id="cb3-1" title="1"><span class="kw">def</span> get_card_image(image_url):</a>
+<a class="sourceLine" id="cb3-2" title="2">    <span class="co">&quot;&quot;&quot;Return the image bytes from a given image url.&quot;&quot;&quot;</span></a>
+<a class="sourceLine" id="cb3-3" title="3">    <span class="cf">return</span> urllib.request.urlopen(image_url).read()</a></code></pre></div>
+<p>Getting the image contents of the card is pretty straight-forward. We use <code>urlopen</code> and read its entire contents.</p>
+<div class="sourceCode" id="cb4" data-startFrom="1"><pre class="sourceCode numberSource python numberLines"><code class="sourceCode python"><a class="sourceLine" id="cb4-1" title="1"><span class="cf">if</span> <span class="va">__name__</span> <span class="op">==</span> <span class="st">'__main__'</span>:</a>
+<a class="sourceLine" id="cb4-2" title="2">    card <span class="op">=</span> query_by_name(sys.argv[<span class="dv">1</span>])</a>
+<a class="sourceLine" id="cb4-3" title="3"></a>
+<a class="sourceLine" id="cb4-4" title="4">    <span class="cf">if</span> card:</a>
+<a class="sourceLine" id="cb4-5" title="5">        <span class="cf">if</span> <span class="kw">not</span> card.image_url:</a>
+<a class="sourceLine" id="cb4-6" title="6">            sys.exit(<span class="st">&quot;Error: Card has no associated image url&quot;</span>)</a>
+<a class="sourceLine" id="cb4-7" title="7"></a>
+<a class="sourceLine" id="cb4-8" title="8">        <span class="cf">with</span> tempfile.NamedTemporaryFile() <span class="im">as</span> ntf:</a>
+<a class="sourceLine" id="cb4-9" title="9">            ntf.write(get_card_image(card.image_url))</a>
+<a class="sourceLine" id="cb4-10" title="10">            subprocess.check_call([os.path.expanduser(<span class="st">'~/imgcat.sh'</span>),</a>
+<a class="sourceLine" id="cb4-11" title="11">                                   ntf.name])</a>
+<a class="sourceLine" id="cb4-12" title="12">    <span class="cf">else</span>:</a>
+<a class="sourceLine" id="cb4-13" title="13">        sys.exit(<span class="st">&quot;Error: Unable to find card '</span><span class="sc">{0}</span><span class="st">'&quot;</span>.<span class="bu">format</span>(sys.argv[<span class="dv">1</span>]))</a></code></pre></div>
+<p>First, we query the card name and ensure that both a card was found and one of them had an image url associated with it. Then we create a temorary, named file (since we need to refer to it by name for the <code>imgcat</code> script), write the image bytes to it and finally call the script using <a href="https://docs.python.org/3.4/library/subprocess.html#subprocess.check_call"><code>subprocess.check_call</code></a>. Notice that we also use <a href="https://docs.python.org/3.4/library/os.path.html?highlight=os.path.expanduser#os.path.expanduser"><code>os.path.expanduser</code></a> to expand the tilde, since I have put the script in my home directory. This is what it looks like in my terminal:</p>
+<figure>
+<img src="../images/screenshots/mtg_screenshot.png" alt="The script in action" /><figcaption><em>The script in action</em></figcaption>
+</figure>
+<p>Notice that the script is devoid of error-checking. If you want a full-blown command line interface for querying magic cards, check <a href="https://github.com/chigby/mtg">this</a> project out.</p>
+
+        
+        <hr />
+        <span class="version">Versions used in this post:</span>
+        <ul>
+            
+                <li>Python 3.4</li>
+            
+        </ul>
+        
+    </section>
+</article>
+
+        </main>
+
+        <footer>
+            <div class="left">
+                <a href="https://github.com/MisanthropicBit">
+                    <img src="../images/github-logo.png" style="max-width: 5%;" alt>
+                </a>
+            </div>
+            <div class="right">
+                <a href="https://www.github.com/MisanthropicBit/homepage">Site</a> generated with <a href="http://jaspervdj.be/hakyll">Hakyll</a>
+            </div>
+        </footer>
+    </body>
+</html>

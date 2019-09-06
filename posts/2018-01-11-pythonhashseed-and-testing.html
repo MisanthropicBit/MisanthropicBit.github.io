@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>coffeeproc - Testing and PYTHONHASHSEED</title>
+        <link rel="stylesheet" href="../css/default.css" />
+        <link rel="stylesheet" href="../css/syntax/tomas.css" />
+        <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+        <script type="text/javascript" src="../js/loadRepoDescriptions.js"></script>
+
+        
+
+        
+    </head>
+    <body>
+        <header>
+            <div class="logo">
+                <a href="../">coffeeproc</a>
+            </div>
+            <nav>
+                <a href="../">Home</a>
+                <a href="../projects.html">Projects</a>
+                <a href="../posts.html">Posts</a>
+                <a href="../about.html">About</a>
+            </nav>
+        </header>
+
+        <main role="main">
+            <h1>Testing and PYTHONHASHSEED</h1>
+            <article>
+    <section class="header">
+        Posted on 2018-01-11
+        
+    </section>
+    <section class="header">
+        
+            Tags: <a href="../tags/python.html">python</a> • <a href="../tags/pytest.html">pytest</a> • <a href="../tags/testing.html">testing</a>
+        
+    </section>
+    <hr />
+    <section>
+        <p>This subject has been <a href="http://echorand.me/pythonhashseed-and-your-tests.html">covered before</a> (and probably in many other places) but since it is extremely important to remember when testing Python code, I feel like it bears repeating.</p>
+<p>I was recently testing a lexer class in <a href="https://github.com/MisanthropicBit/bibpy">one of my Python projects</a>. I was running my tests with <a href="https://docs.pytest.org/en/latest/"><code>pytest</code></a> and <a href="https://tox.readthedocs.io/en/latest/"><code>tox</code></a>, testing Python versions 2.7, 3.3, 3.4, 3.5 and 3.6 and my lexer tests would randomly fail or pass. Interestingly, it was one specific test that seemed to fail haphazardly, almost as if the lexer was undeterministic. Here is a stripped-down version of the test:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode numberSource python numberLines"><code class="sourceCode python"><a class="sourceLine" id="cb1-1" title="1"><span class="kw">def</span> test_lex_with_comments():</a>
+<a class="sourceLine" id="cb1-2" title="2">   string <span class="op">=</span> <span class="op">&lt;</span>something to lex containing comments<span class="op">&gt;</span></a>
+<a class="sourceLine" id="cb1-3" title="3"></a>
+<a class="sourceLine" id="cb1-4" title="4">   <span class="cf">assert</span> token_types(Lexer().lex(string)) <span class="op">==</span> [...expected token types...]</a></code></pre></div>
+<p>The test lexes a test string and checks that the lexed token types correspdong to what we expect. When the test failed, it would have lexed a <code>name</code> token instead of a <code>number</code> token for something that was <em>clearly</em> a number. I started searching for some randomness in my code which I might have accidentally introduced during some testing but found nothing. Stumped, I continued to work on other parts of the project coming back to this peculiar test once in a while.</p>
+<p>After about a week, I was reminded of <code>PYTHONHASHSEED</code> which is printed out to the console by <code>tox</code> before each set of tests are run for a specific Python version.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb2-1" title="1">   <span class="ex">py27</span> installed: asn1crypto==0.23.0,bibpy==0.1.0a0,certifi==2017.11.5,cffi==1.11.2,chardet==3.0.4,coverage==4.4.2,coveralls==1.2.0,cram==0.7,cryptography==2.1.3,docopt==0.6.2,enum34==1.1.6,funcparserlib==0.3.6,idna==2.6,ipaddress==1.0.18,pep257==0.7.0,py==1.5.2,pycparser==2.18,pyOpenSSL==17.4.0,pyparsing==2.2.0,pytest==3.2.5,pytest-quickcheck==0.8.3,PyYAML==3.12,requests==2.18.4,six==1.11.0,urllib3==1.22</a>
+<a class="sourceLine" id="cb2-2" title="2">   <span class="ex">py27</span> runtests: PYTHONHASHSEED=<span class="st">'3752821799'</span></a>
+<a class="sourceLine" id="cb2-3" title="3">   <span class="ex">py27</span> runtests: commands[0] <span class="kw">|</span> <span class="ex">pytest</span> tests/</a>
+<a class="sourceLine" id="cb2-4" title="4">   =========================================================================================== <span class="bu">test</span> session starts ============================================================================================</a>
+<a class="sourceLine" id="cb2-5" title="5">   <span class="ex">platform</span> darwin -- Python 2.7.14, pytest-3.2.5, py-1.5.2, pluggy-0.4.0</a>
+<a class="sourceLine" id="cb2-6" title="6">   <span class="ex">...</span></a></code></pre></div>
+<p><a href="https://docs.python.org/3.3/using/cmdline.html#envvar-PYTHONHASHSEED"><code>PYTHONHASHSEED</code></a> is a security measure introduced in Python 3.2.3, put in place to make it harder to gauge information about a program by seeding the hashes of <code>str</code>, <code>bytes</code> (Python 3+) and <code>datetime</code>. I copied the numbers for a passed and failed test run and manually ran the tests again with each of these numbers.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><a class="sourceLine" id="cb3-1" title="1">   <span class="va">PYTHONHASHSEED=</span><span class="op">&lt;</span><span class="ex">passing_number</span><span class="op">&gt;</span> pytest tests</a>
+<a class="sourceLine" id="cb3-2" title="2">   <span class="va">PYTHONHASHSEED=</span><span class="op">&lt;</span><span class="ex">failing_number</span><span class="op">&gt;</span> pytest tests</a></code></pre></div>
+<p>The passing tests continued to pass while the failing continued to failed and my frustration was supplanted with excitement! As it turns out, part of this randomness affects the order in which dictionary elements are iterated so that a malicious attacker cannot rely on a deterministic iteration across multiple runs.</p>
+<p>My lexer class stored a dictionary of regular expressions for each token and iterated across them in the main lexer method to match tokens in the stream. A different order would not be a problem, <strong>as long as no regex could match more than one token type</strong>. This was exactly the problem because my regular expressions for the <code>name</code> and <code>number</code> tokens looked like this.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode python"><code class="sourceCode python"><a class="sourceLine" id="cb4-1" title="1">   <span class="co">'number'</span> <span class="op">=&gt;</span> <span class="st">'-?(0|([1-9][0-9]*))'</span></a>
+<a class="sourceLine" id="cb4-2" title="2">   <span class="co">'name'</span>   <span class="op">=&gt;</span> <span class="vs">r&quot;\s*[\w\-:?'\.]+\s*&quot;</span></a></code></pre></div>
+<p>The <code>name</code> token could match the <code>number</code> token as the special sequence <a href="https://docs.python.org/3.4/howto/regex.html"><code>\w</code></a> denotes <code>[a-zA-Z0-9_]</code>, but which pattern would ultimately be attempted first depended on the value of <code>PYTHONHASHSEED</code>.</p>
+<p>My fix involved storing the keys (token names) in a separate, auxiliary list that would ensure that the patterns would be attempted in their original order. Alternatively, I could have used the <a href="https://docs.python.org/2/library/collections.html#collections.OrderedDict"><code>collections.OrderedDict</code></a>, but since the lexing method was on the profiling hotpath, I decided against this in favor of the speed of <code>dict</code> by sacrificing a small amount of memory (as an addendum, <code>collections.OrderedDict</code> is now <a href="https://docs.python.org/3/whatsnew/3.5.html#whatsnew-ordereddict">implemented in <code>C</code></a> in Python 3.5 and onwards).</p>
+
+        
+    </section>
+</article>
+
+        </main>
+
+        <footer>
+            <div class="left">
+                <a href="https://github.com/MisanthropicBit">
+                    <img src="../images/github-logo.png" style="max-width: 5%;" alt>
+                </a>
+            </div>
+            <div class="right">
+                <a href="https://www.github.com/MisanthropicBit/homepage">Site</a> generated with <a href="http://jaspervdj.be/hakyll">Hakyll</a>
+            </div>
+        </footer>
+    </body>
+</html>
