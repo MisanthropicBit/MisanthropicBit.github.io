@@ -1,0 +1,27 @@
+<article>
+    <section class="header">
+        Posted on $date$
+        $if(author)$
+            by $author$
+        $endif$
+    </section>
+    <section class="header">
+        $if(tags)$
+            Tags: $tags$
+        $endif$
+    </section>
+    <hr />
+    <section>
+        $body$
+
+        $if(versions)$
+        <hr />
+        <span class="version">Versions used in this post:</span>
+        <ul>
+            $for(versions)$
+                <li>$version$</li>
+            $endfor$
+        </ul>
+        $endif$
+    </section>
+</article>
