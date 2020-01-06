@@ -29,7 +29,7 @@ git add -A
 
 # Ask user for commit message and commit
 read -p 'Enter commit message: ' commit_msg
-git commit -m "$commit_msg"
+git commit -m -S "$commit_msg"
 
 # Push updates to master
 git push origin master:master
