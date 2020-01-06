@@ -27,9 +27,8 @@ rsync -a --filter='P _site/'      \
 # Stage all files
 git add -A
 
-# Ask user for commit message and commit
-read -p 'Enter commit message: ' commit_msg
-git commit -m -S "$commit_msg"
+# Ask user to make a signed commit
+git commit -S
 
 # Push updates to master
 git push origin master:master
